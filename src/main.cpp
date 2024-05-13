@@ -1,10 +1,11 @@
 #include <Arduino.h>
-/***
- This is the device driver for AT1 of DryBot v2.3a, may 10 2024.
+/*** AT2
+ AT2 of DryBot v2.3a, may 10 2024.
  */
 #include <Wire.h>
 #define TF_OFF
 #define ACC_OFF
+#define CLR_ON
 
 #ifdef ACC_ON
   #include "SparkFun_LIS2DH12.h"
@@ -14,7 +15,12 @@
   #include <VL53L0X.h>
   VL53L0X sensor; //0x29
 #endif
-#define FOR(I,N) for(int i=I;i<N;i++)
+#ifdef CLR_ON
+  #include "veml6040.h"
+  VEML6040 RGBWSensor;
+#endif
+
+#define FOR(I,N) for(int I=0;i<N;I++)
 #define PA0 17 //UPDI
 #define PA1 14 //MOSI
 #define PA2 15 //MISO
@@ -36,20 +42,24 @@
 #define PC2 12
 #define PC3 13
 
-int ENC_MA_A = PC0;
-int ENC_MA_B = PC1;
-int ENC_MB_A = PC2;
-int ENC_MB_B = PC3;
-int ENC_MC_A = PA6;
-int ENC_MC_B = PA7;
-int MA1 = PA4;
-int MA2 = PA5;
-int RGB_G = PB4;
-int RGB_B = PB5;
+int SEN13 = PC0;
+int SEN14 = PC1;
+int SEN1  = PC2;
+int SEN2  = PC3;
+int SEN3  = PB2;
+int MB1 = PB3;
+int MB2 = PA3;
+int MC1 = PA4;
+int MC2 = PA5;
+int MD1 = PB4;
+int MD2 = PB5;
+int ENC_MD_A = PA6;
+int ENC_MD_B = PA7;
+
 //pwm pins: pb3,4,5, pa3,4,5, pc0/1 : please choose correct settings.
-int RGB_R = PA3; //dryBot LEDR 1 = off
-int WLED1 = PA2; //dryBot LEDW 0 = off
-int RLED1 = PA1;
+
+int WLED2 = PA2; //dryBot LEDW 0 = off
+int RLED2 = PA1;
 //#define MY_ADDRESS 0x17 // address for this slave device
 //#define SLAVE_ADDRESS 0x12
 
@@ -65,38 +75,32 @@ void drive_motor(int,int,int,int);
 void signalling(int);
 
 void setup() {
-  pinMode(RLED1,OUTPUT);
-  pinMode(WLED1,OUTPUT);
-  pinMode(ENC_MA_A,INPUT);
-  pinMode(ENC_MA_B,INPUT);
-  pinMode(ENC_MB_A,INPUT);
-  pinMode(ENC_MB_B,INPUT);
-  pinMode(ENC_MC_A,INPUT);
-  pinMode(ENC_MC_B,INPUT);
+  pinMode(RLED2,OUTPUT);
+  pinMode(WLED2,OUTPUT);
+  pinMode(ENC_MD_A,INPUT);
+  pinMode(ENC_MD_B,INPUT);
+  pinMode(MB1, OUTPUT); 
+  pinMode(MB2, OUTPUT);
+  pinMode(MC1, OUTPUT); 
+  pinMode(MC2, OUTPUT);
+  pinMode(MD1, OUTPUT); 
+  pinMode(MD2, OUTPUT);
+  pinMode(SEN13, INPUT);
+  pinMode(SEN14, INPUT);
+  pinMode(SEN1, INPUT);
+  pinMode(SEN2, INPUT);
+  pinMode(SEN3, INPUT);
   
-  pinMode(MA1, OUTPUT); 
-  pinMode(MA2, OUTPUT);
 
-  pinMode(RGB_R, OUTPUT);
-  pinMode(RGB_G, OUTPUT);
-  pinMode(RGB_B, OUTPUT);
 
-// motor test
-//  digitalWrite(MA1,0);
-//  digitalWrite(MA2,0);
-//  delay(1000);
-//  digitalWrite(MA1,1);
-//  digitalWrite(MA2,1);
-
-  show_RGB(0x00FFFF);
-  //analogWrite(MA1, 0);
-  //analogWrite(MA2, 0);
   //Wire.begin(MY_ADDRESS); // join i2c bus as slave
   Wire.begin(); // join i2c bus as master
+  //Switch colour sensor
+  TCA9548A(1);
   //Wire.onReceive(receiveData); // callback for receiving data
   //Wire.onRequest(sendData); // callback for sending data
-  digitalWrite(RLED1, 0); //off
-  digitalWrite(WLED1, 0); // 1 on for light
+  digitalWrite(RLED2, 0); //off
+  digitalWrite(WLED2, 1); // 1 on for light
   
   #ifdef TF_ON
   sensor.setTimeout(500);
@@ -115,15 +119,20 @@ void setup() {
     delay(100);
   }
   #endif
+
+  #ifdef CLR_ON
+    if(!RGBWSensor.begin()) {
+      FOR(i,5){
+        signalling(30);
+        delay(200);
+      }
+    }
+  #endif
 }
 
 // arduino long type has 4 bytes, 0xFFFFFFFF, signed. ranged -2,147,483,648 to 2,147483,647
 void loop() {  
-    //digitalWrite(RGB_R,digitalRead(ENC_MA_A)); // ma_a was working but seems pin has died.?
-    digitalWrite(RGB_B,digitalRead(ENC_MB_B)); 
-    digitalWrite(RGB_R,digitalRead(ENC_MB_A)); 
-    show_RGB(0xFFFDFF);
-  
+
   #ifdef TF_ON
   head=sensor.readRangeContinuousMillimeters();
   if (sensor.timeoutOccurred()) FOR(3)signalling(50);
@@ -133,6 +142,7 @@ void loop() {
     digitalWrite(WLED1,0);
   }
   #endif
+
   #ifdef ACC_ON
   z_acc = accel.getZ();
   if (z_acc < 0){
@@ -142,6 +152,10 @@ void loop() {
   }
   #endif
 
+  #ifdef CLR_ON
+
+    RGBWSensor.getRed();
+  #endif 
 }
 
 /*
@@ -171,16 +185,16 @@ void drive_motor(int p1, int p2, int dir, int speed){
 void signalling(int delaytime) {
   // Blink the LED as a signal
   for (int i = 0; i < 3; i++) {
-    digitalWrite(RLED1, HIGH);
+    digitalWrite(RLED2, HIGH);
     delay(delaytime);
-    digitalWrite(RLED1, LOW);
+    digitalWrite(RLED2, LOW);
     delay(delaytime);
   }
 }
 
-//long RGB = 0x000000; //this will be full brightness on all three leds
-void show_RGB(long val){
-  analogWrite(RGB_R,val>>16 & 0xFF);
-  analogWrite(RGB_G,val>>8  & 0xFF);
-  analogWrite(RGB_B,val     & 0xFF);
+//This is the Multiplexor control
+void TCA9548A(uint8_t bus){
+  Wire.beginTransmission(0x70);  // TCA9548A address
+  Wire.write(1 << bus);          // send byte to select bus
+  Wire.endTransmission();
 }
