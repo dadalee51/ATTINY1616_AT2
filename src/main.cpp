@@ -1,11 +1,11 @@
 #include <Arduino.h>
-/*** AT2
+/*** AT2 - master 0x17
  AT2 of DryBot v2.3a, may 10 2024.
  */
 #include <Wire.h>
 #define TF_OFF
 #define ACC_OFF
-#define CLR_ON
+#define CLR_OFF
 
 #ifdef ACC_ON
   #include "SparkFun_LIS2DH12.h"
@@ -20,7 +20,7 @@
   VEML6040 RGBWSensor;
 #endif
 
-#define FOR(I,N) for(int I=0;i<N;I++)
+#define FOR(I,N) for(int I=0;I<N;I++)
 #define PA0 17 //UPDI
 #define PA1 14 //MOSI
 #define PA2 15 //MISO
@@ -60,8 +60,6 @@ int ENC_MD_B = PA7;
 
 int WLED2 = PA2; //dryBot LEDW 0 = off
 int RLED2 = PA1;
-//#define MY_ADDRESS 0x17 // address for this slave device
-//#define SLAVE_ADDRESS 0x12
 
 #ifdef TF_ON
   int head=0;
@@ -69,10 +67,31 @@ int RLED2 = PA1;
 #ifdef ACC_ON
   float z_acc=0.0;
 #endif
+#ifdef CLR_ON
+  int red=0; int mred=0;
+  int blue=0; int mblue=0; 
+  int green=0; int mgreen=0;
+#endif
 
-void show_RGB(long);
+void TCA9548A(uint8_t bus);
 void drive_motor(int,int,int,int);
 void signalling(int);
+/*** Wire interface **********************************************/
+#define MASTER_ADDRESS 0x17 
+#define SLAVE_ADDRESS 0x12 
+#define BUFFER_SIZE 20 
+char receivedData[BUFFER_SIZE]; 
+int dataLength = 0; 
+//master send
+void receiveData(int numBytes) {
+  dataLength = numBytes;
+  Wire.readBytes(receivedData, numBytes);
+}
+//master read
+void sendData() {
+  Wire.write(receivedData, dataLength);
+}
+
 
 void setup() {
   pinMode(RLED2,OUTPUT);
@@ -91,16 +110,15 @@ void setup() {
   pinMode(SEN2, INPUT);
   pinMode(SEN3, INPUT);
   
-
-
-  //Wire.begin(MY_ADDRESS); // join i2c bus as slave
+  //Wire.begin(SLAVE_ADDRESS); // join i2c bus as slave
   Wire.begin(); // join i2c bus as master
   //Switch colour sensor
-  TCA9548A(1);
+  //TCA9548A(1);
   //Wire.onReceive(receiveData); // callback for receiving data
   //Wire.onRequest(sendData); // callback for sending data
-  digitalWrite(RLED2, 0); //off
-  digitalWrite(WLED2, 1); // 1 on for light
+
+  digitalWrite(RLED2, 1); //off
+  digitalWrite(WLED2, 0); // 1 on for light
   
   #ifdef TF_ON
   sensor.setTimeout(500);
@@ -128,11 +146,42 @@ void setup() {
       }
     }
   #endif
+
+  #ifdef CLR_ON
+  //switch to first clr sensr
+  //TCA9548A(0);
+  RGBWSensor.setConfiguration(VEML6040_IT_40MS + VEML6040_AF_AUTO + VEML6040_SD_ENABLE);
+  //RGBWSensor.setConfiguration(VEML6040_IT_40MS + VEML6040_TRIG_ENABLE + VEML6040_AF_FORCE + VEML6040_SD_ENABLE);
+  delay(500);
+  FOR(i,5){
+    if(!RGBWSensor.begin()) {
+      signalling(30);
+      delay(1000);
+    }
+  }
+  //switch to first clr sensr
+  // TCA9548A(1);
+  // //RGBWSensor.setConfiguration(VEML6040_IT_40MS + VEML6040_AF_AUTO + VEML6040_SD_ENABLE);
+  // RGBWSensor.setConfiguration(VEML6040_IT_40MS + VEML6040_TRIG_ENABLE + VEML6040_AF_FORCE + VEML6040_SD_ENABLE);
+  // delay(500);
+  // FOR(i,5){
+  //   if(!RGBWSensor.begin()) {
+  //     signalling(30);
+  //     delay(1000);
+  //   }
+  // }
+  #endif
 }
 
 // arduino long type has 4 bytes, 0xFFFFFFFF, signed. ranged -2,147,483,648 to 2,147483,647
 void loop() {  
-
+  Wire.beginTransmission(0x12); 
+  Wire.write(0x01);
+  Wire.write(0x00);
+  Wire.write(0b01010101);
+  Wire.write(0xFA);
+  Wire.endTransmission(); 
+  delay(1000);
   #ifdef TF_ON
   head=sensor.readRangeContinuousMillimeters();
   if (sensor.timeoutOccurred()) FOR(3)signalling(50);
@@ -151,10 +200,34 @@ void loop() {
     digitalWrite(WLED1, 0);//Wled off
   }
   #endif
-
   #ifdef CLR_ON
-
-    RGBWSensor.getRed();
+    delay(40);
+    TCA9548A(0);
+    delay(40);
+    //RGBWSensor.setConfiguration(VEML6040_IT_40MS + VEML6040_TRIG_ENABLE + VEML6040_AF_FORCE + VEML6040_SD_ENABLE);
+    red = RGBWSensor.getRed();
+    green = RGBWSensor.getGreen();
+    blue = RGBWSensor.getBlue();
+    mred = map(red, 0,30000,254,0); //red is very sensitive, 200 to 900, was already a high amount, how to lower?
+    mgreen = map(green, 0,1000,254,0);
+    mblue = map(blue, 0,700,254,0); //the lower the range, more amplify
+    analogWrite(RGB_R, mred);
+    analogWrite(RGB_B, mblue);
+    analogWrite(RGB_G, mgreen);
+    delay(40);
+    // delay(40);
+    // TCA9548A(1);
+    // delay(40);
+    // RGBWSensor.setConfiguration(VEML6040_IT_40MS + VEML6040_TRIG_ENABLE + VEML6040_AF_FORCE + VEML6040_SD_ENABLE);
+    // red = RGBWSensor.getRed();
+    // green = RGBWSensor.getGreen();
+    // blue = RGBWSensor.getBlue();
+    // mred = map(red, 0,5000,254,0); //red is very sensitive, 200 to 900, was already a high amount, how to lower?
+    // mgreen = map(green, 0,800,254,0);
+    // mblue = map(blue, 0,700,254,0); //the lower the range, more amplify
+    // analogWrite(RGB_R, mred);
+    // analogWrite(RGB_B, mblue);
+    // analogWrite(RGB_G, mgreen);
   #endif 
 }
 
