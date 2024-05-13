@@ -178,8 +178,10 @@ void loop() {
   Wire.beginTransmission(0x12); 
   Wire.write(0x01);
   Wire.write(0x00);
-  Wire.write(0b01010101);
-  Wire.write(0xFA);
+  Wire.write(0b00100101);
+  Wire.write(0x3A); //R
+  Wire.write(0xC0); //G
+  Wire.write(0x50); //B
   Wire.endTransmission(); 
   delay(1000);
   #ifdef TF_ON
