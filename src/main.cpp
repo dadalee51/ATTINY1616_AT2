@@ -117,8 +117,8 @@ void setup() {
   //Wire.onReceive(receiveData); // callback for receiving data
   //Wire.onRequest(sendData); // callback for sending data
 
-  digitalWrite(RLED2, 1); //off
-  digitalWrite(WLED2, 0); // 1 on for light
+  digitalWrite(RLED2, 1); // 0 on, 1 off
+  digitalWrite(WLED2, 0); // 1 on, 0 off
   
   #ifdef TF_ON
   sensor.setTimeout(500);
@@ -172,18 +172,41 @@ void setup() {
   // }
   #endif
 }
-
+// long myColr=0x00FF00;
 // arduino long type has 4 bytes, 0xFFFFFFFF, signed. ranged -2,147,483,648 to 2,147483,647
 void loop() {  
   Wire.beginTransmission(0x12); 
   Wire.write(0x01);
   Wire.write(0x00);
-  Wire.write(0b00100101);
-  Wire.write(0x3A); //R
-  Wire.write(0xC0); //G
-  Wire.write(0x50); //B
+  Wire.write(0x01);
+  //Wire.write(myColr);
+  Wire.write(0b10101010); //R
+  Wire.write(0x11); //G
+  Wire.write(0x01); //B
+  Wire.write(0x01); 
+  //Wire.write(0x00); 
   Wire.endTransmission(); 
-  delay(1000);
+  
+  // digitalWrite(RLED2,0);
+  // delay(10);
+  // digitalWrite(RLED2,1);
+  // delay(10);
+
+  //control motor
+  Wire.beginTransmission(0x12); 
+  Wire.write(0x23);//0
+  Wire.write(0x00);//1
+  Wire.write(0x00); //2
+  Wire.write((char)0); //3 --> 1 or -1 to drive
+  Wire.write((char)0); //4 1 to 127
+  Wire.write(0x00); 
+  //Wire.write(0x00); 
+  Wire.endTransmission(); 
+  
+  // digitalWrite(RLED2,0);
+  // delay(10);
+  // digitalWrite(RLED2,1);
+  // delay(10);
   #ifdef TF_ON
   head=sensor.readRangeContinuousMillimeters();
   if (sensor.timeoutOccurred()) FOR(3)signalling(50);
