@@ -42,9 +42,9 @@
 #define PC2 12
 #define PC3 13
 
-int SEN13 = PC0;
+int SEN13 = PC0; //LDR
 int SEN14 = PC1;
-int SEN1  = PC2;
+int SEN1  = PC2; //IR sensor
 int SEN2  = PC3;
 int SEN3  = PB2;
 int MB1 = PB3;
@@ -76,6 +76,7 @@ int RLED2 = PA1;
 void TCA9548A(uint8_t bus);
 void drive_motor(int,int,int,int);
 void signalling(int);
+void to_RGB(long color);
 /*** Wire interface **********************************************/
 #define MASTER_ADDRESS 0x17 
 #define SLAVE_ADDRESS 0x12 
@@ -151,7 +152,6 @@ void setup() {
   //switch to first clr sensr
   //TCA9548A(0);
   RGBWSensor.setConfiguration(VEML6040_IT_40MS + VEML6040_AF_AUTO + VEML6040_SD_ENABLE);
-  //RGBWSensor.setConfiguration(VEML6040_IT_40MS + VEML6040_TRIG_ENABLE + VEML6040_AF_FORCE + VEML6040_SD_ENABLE);
   delay(500);
   FOR(i,5){
     if(!RGBWSensor.begin()) {
@@ -162,7 +162,6 @@ void setup() {
   //switch to first clr sensr
   // TCA9548A(1);
   // //RGBWSensor.setConfiguration(VEML6040_IT_40MS + VEML6040_AF_AUTO + VEML6040_SD_ENABLE);
-  // RGBWSensor.setConfiguration(VEML6040_IT_40MS + VEML6040_TRIG_ENABLE + VEML6040_AF_FORCE + VEML6040_SD_ENABLE);
   // delay(500);
   // FOR(i,5){
   //   if(!RGBWSensor.begin()) {
@@ -171,26 +170,16 @@ void setup() {
   //   }
   // }
   #endif
+  randomSeed(1450);
 }
-// long myColr=0x00FF00;
 // arduino long type has 4 bytes, 0xFFFFFFFF, signed. ranged -2,147,483,648 to 2,147483,647
 void loop() {  
-  Wire.beginTransmission(0x12); 
-  Wire.write(0x01);
-  Wire.write(0x00);
-  Wire.write(0x01);
-  //Wire.write(myColr);
-  Wire.write(0b10101010); //R
-  Wire.write(0x11); //G
-  Wire.write(0x01); //B
-  Wire.write(0x01); 
-  //Wire.write(0x00); 
-  Wire.endTransmission(); 
-  
+  //digitalWrite(WLED2,1);
+  to_RGB( random(65535)); //RGB
   // digitalWrite(RLED2,0);
-  // delay(10);
+  // delay(100);
   // digitalWrite(RLED2,1);
-  // delay(10);
+  // delay(100);
 
   //control motor
   Wire.beginTransmission(0x12); 
@@ -204,9 +193,9 @@ void loop() {
   Wire.endTransmission(); 
   
   // digitalWrite(RLED2,0);
-  // delay(10);
+  // delay(500);
   // digitalWrite(RLED2,1);
-  // delay(10);
+  // delay(500);
   #ifdef TF_ON
   head=sensor.readRangeContinuousMillimeters();
   if (sensor.timeoutOccurred()) FOR(3)signalling(50);
@@ -295,4 +284,19 @@ void TCA9548A(uint8_t bus){
   Wire.beginTransmission(0x70);  // TCA9548A address
   Wire.write(1 << bus);          // send byte to select bus
   Wire.endTransmission();
+}
+
+// SENDING to COLOR RGB
+void to_RGB(long color){
+  // if(color>>16 == 1)digitalWrite(WLED2,1);
+  // else digitalWrite(WLED2,0);
+  Wire.beginTransmission(0x12); 
+  Wire.write(0x01);
+  Wire.write(0x00);
+  Wire.write(0x01);//padding byte
+  Wire.write(color>>16); //R
+  Wire.write(color>>8); //G
+  Wire.write(color); //B
+  Wire.write(0x00); 
+  Wire.endTransmission(); 
 }
