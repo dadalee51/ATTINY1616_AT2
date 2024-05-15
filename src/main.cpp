@@ -3,7 +3,7 @@
  AT2 of DryBot v2.3a, may 10 2024.
  */
 #include <Wire.h>
-#define TF_OFF
+#define TF_ON
 #define ACC_OFF
 #define CLR_OFF
 
@@ -42,7 +42,8 @@
 #define PC2 12
 #define PC3 13
 
-int SEN13 = PC0; //LDR
+//int SEN13 = PC0; //LDR
+int SEN13 = PC0;
 int SEN14 = PC1;
 int SEN1  = PC2; //IR sensor
 int SEN2  = PC3;
@@ -77,6 +78,8 @@ void TCA9548A(uint8_t bus);
 void drive_motor(int,int,int,int);
 void signalling(int);
 void to_RGB(long color);
+void to_MotorA(int dir, int speed);
+void debugData(long val);
 /*** Wire interface **********************************************/
 #define MASTER_ADDRESS 0x17 
 #define SLAVE_ADDRESS 0x12 
@@ -95,6 +98,7 @@ void sendData() {
 
 
 void setup() {
+
   pinMode(RLED2,OUTPUT);
   pinMode(WLED2,OUTPUT);
   pinMode(ENC_MD_A,INPUT);
@@ -111,6 +115,19 @@ void setup() {
   pinMode(SEN2, INPUT);
   pinMode(SEN3, INPUT);
   
+  // ADC1.CTRLA = ADC_ENABLE_bm;
+  // ADC1.CTRLC = ADC_REFSEL_VDDREF_gc | ADC_PRESC_DIV256_gc;
+  // ADC1.MUXPOS = ADC_MUXPOS_AIN0_gc;
+
+// #ifdef ADC1
+// FOR(i,10){
+//   digitalWrite(WLED2,1);
+//   delay(30);
+//   digitalWrite(WLED2,0);
+//   delay(30);
+// }
+// #endif
+
   //Wire.begin(SLAVE_ADDRESS); // join i2c bus as slave
   Wire.begin(); // join i2c bus as master
   //Switch colour sensor
@@ -120,11 +137,12 @@ void setup() {
 
   digitalWrite(RLED2, 1); // 0 on, 1 off
   digitalWrite(WLED2, 0); // 1 on, 0 off
-  
+  //digitalWrite(MD1, 0); // 0 on, 1 off
+  //digitalWrite(MD2, 0); // 0 on, 1 off
   #ifdef TF_ON
   sensor.setTimeout(500);
   if (!sensor.init()) {
-    FOR(3){
+    FOR(k,3){
     signalling(30);
     delay(100);
     }
@@ -174,35 +192,14 @@ void setup() {
 }
 // arduino long type has 4 bytes, 0xFFFFFFFF, signed. ranged -2,147,483,648 to 2,147483,647
 void loop() {  
-  //digitalWrite(WLED2,1);
-  to_RGB( random(65535)); //RGB
-  // digitalWrite(RLED2,0);
-  // delay(100);
-  // digitalWrite(RLED2,1);
-  // delay(100);
-
-  //control motor
-  Wire.beginTransmission(0x12); 
-  Wire.write(0x23);//0
-  Wire.write(0x00);//1
-  Wire.write(0x00); //2
-  Wire.write((char)0); //3 --> 1 or -1 to drive
-  Wire.write((char)0); //4 1 to 127
-  Wire.write(0x00); 
-  //Wire.write(0x00); 
-  Wire.endTransmission(); 
-  
-  // digitalWrite(RLED2,0);
-  // delay(500);
-  // digitalWrite(RLED2,1);
-  // delay(500);
+  to_RGB( random(65535)); //RGB proof i2c works
   #ifdef TF_ON
   head=sensor.readRangeContinuousMillimeters();
-  if (sensor.timeoutOccurred()) FOR(3)signalling(50);
+  if (sensor.timeoutOccurred()) FOR(k,3)signalling(50);
   if(head > 100){
-    digitalWrite(WLED1,1); //turn on
+    digitalWrite(WLED2,1); //turn on
   }else{
-    digitalWrite(WLED1,0);
+    digitalWrite(WLED2,0);
   }
   #endif
 
@@ -299,4 +296,35 @@ void to_RGB(long color){
   Wire.write(color); //B
   Wire.write(0x00); 
   Wire.endTransmission(); 
+}
+
+void to_MotorA(int dir, int speed){
+  //control motor
+  Wire.beginTransmission(0x12); 
+  Wire.write(0x23);//0
+  Wire.write(0x00);//1
+  Wire.write(0x00); //2
+  Wire.write((char)dir); //3 --> 1 or -1 to drive
+  Wire.write((char)speed); //4 1 to 127
+  Wire.write(0x00); 
+  Wire.endTransmission(); 
+}
+
+void to_WLED1(int val){
+
+
+}
+
+void debugData(long val){
+  int rled_flip=0;
+    FOR(i,16){
+      digitalWrite(WLED2,(val>>i)&1);
+      digitalWrite(RLED2,rled_flip);
+      rled_flip = !rled_flip;
+      delay(30);
+      digitalWrite(WLED2,0);
+      digitalWrite(RLED2,rled_flip);
+      rled_flip = !rled_flip;
+      delay(30);
+    }
 }
