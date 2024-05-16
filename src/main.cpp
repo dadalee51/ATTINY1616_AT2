@@ -3,7 +3,7 @@
  AT2 of DryBot v2.3a, may 10 2024.
  */
 #include <Wire.h>
-#define TF_ON
+#define TF_OFF
 #define ACC_OFF
 #define CLR_OFF
 
@@ -144,7 +144,7 @@ void setup() {
   if (!sensor.init()) {
     FOR(k,3){
     signalling(30);
-    delay(100);
+    delay(1000);
     }
   }
   sensor.startContinuous();
@@ -192,14 +192,18 @@ void setup() {
 }
 // arduino long type has 4 bytes, 0xFFFFFFFF, signed. ranged -2,147,483,648 to 2,147483,647
 void loop() {  
-  to_RGB( random(65535)); //RGB proof i2c works
+  delay(100);
+  to_RGB( random(0xAAAAAA)); //RGB proof i2c works
+  delay(100);
   #ifdef TF_ON
   head=sensor.readRangeContinuousMillimeters();
   if (sensor.timeoutOccurred()) FOR(k,3)signalling(50);
-  if(head > 100){
+  if(head > 300){
     digitalWrite(WLED2,1); //turn on
+    to_WLED1(1);
   }else{
     digitalWrite(WLED2,0);
+    to_WLED1(0);
   }
   #endif
 
@@ -306,13 +310,18 @@ void to_MotorA(int dir, int speed){
   Wire.write(0x00); //2
   Wire.write((char)dir); //3 --> 1 or -1 to drive
   Wire.write((char)speed); //4 1 to 127
-  Wire.write(0x00); 
+  Wire.write(0x00); //this was required!!
   Wire.endTransmission(); 
 }
 
 void to_WLED1(int val){
-
-
+  Wire.beginTransmission(0x12); 
+  Wire.write(0x0F);
+  Wire.write(0x33);
+  Wire.write(0x01);//padding byte
+  Wire.write((char)val);
+  Wire.write(0x01);//padding byte was required!!
+  Wire.endTransmission(); 
 }
 
 void debugData(long val){
