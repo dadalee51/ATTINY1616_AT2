@@ -4,7 +4,7 @@
  AT2 of DryBot v2.3a, may 10 2024.
  */
 #include <Wire.h>
-#define TF_OFF
+#define TF_ON
 #define ACC_OFF
 #define CLR_OFF
 
@@ -64,7 +64,7 @@ void to_Int(int val);
 #define BUFFER_SIZE 20 
 /****Setup function ================================================*/
 void setup() {
-  delay(5000);
+  delay(2000);
   pinMode(RLED2,OUTPUT);
   pinMode(WLED2,OUTPUT);
   pinMode(ENC_MD_A,INPUT);
@@ -80,7 +80,12 @@ void setup() {
   pinMode(SEN1, INPUT);
   pinMode(SEN2, INPUT);
   pinMode(SEN3, INPUT);
-  
+  init_ADC1(); //required by author
+
+  analogReference1(INTERNAL2V5); // set reference to the desired voltage, and set that as the ADC reference.
+  analogReference1(VDD); // Set the ADC reference to VDD. Voltage selected previously is still the selected, just not set as the ADC reference.  
+  //analogReference1(INTERNAL0V55);
+
   Wire.begin(); // join i2c bus as master
   //Switch colour sensor
   //TCA9548A(1);
@@ -142,18 +147,16 @@ void setup() {
 }
 // arduino long type has 4 bytes, 0xFFFFFFFF, signed. ranged -2,147,483,648 to 2,147483,647
 long anval =0;
+int counter = 0;
 void loop() {  
-  delay(10);
-
-  to_RGB( random(0xAAAAAA)); //RGB proof i2c works
-  //to_RGB(0x0000FF);
-  
-  //anval = analogRead1(SEN14);
-  //to_Char((char*)anval,4);
-
-  //anval = digitalRead(SEN14);
-  //to_Long(anval);
-  
+  counter++;
+  // to_RGB( random(0xAAAAAA)); //RGB proof i2c works
+  if (counter % 4 == 0)  to_RGB( random(0xAAAAAA)); //RGB proof i2c works
+  if (counter > 100) counter=0;
+  anval = analogRead1(SEN13); 
+  to_Long(anval);
+  anval = analogRead1(SEN14); 
+  to_Long(anval);
 
   #ifdef TF_ON
   head=sensor.readRangeContinuousMillimeters();
@@ -259,8 +262,9 @@ void to_RGB(long color){
   Wire.write((char)color>>16 & 0xFF); //R
   Wire.write(color>>8 & 0xFF); //G
   Wire.write(color & 0xFF); //B
-  Wire.write("END"); 
+  Wire.write('E'); 
   Wire.endTransmission(); 
+  delay(1);
 }
 
 void to_MotorA(int dir, int speed){
@@ -271,7 +275,7 @@ void to_MotorA(int dir, int speed){
   Wire.write('1'); //2
   Wire.write((char)dir); //3 --> 1 or -1 to drive
   Wire.write((char)speed); //4 1 to 127
-  Wire.write("END"); //this was required!!
+  Wire.write('E'); //this was required!!
   Wire.endTransmission(); 
 }
 
@@ -282,7 +286,7 @@ void to_WLED1(char val){
   Wire.write('L');
   Wire.write('1');//padding byte
   Wire.write((char)val);
-  Wire.write("END");//padding byte was required!!
+  Wire.write('E');//padding byte was required!!
   Wire.endTransmission(); 
 }
 
@@ -296,7 +300,7 @@ void to_Char(char* val, int lngth){
     Wire.write(*val);
     val++;
   }
-  Wire.write('END');//padding byte was required!!
+  Wire.write('E');//padding byte was required!!
   Wire.endTransmission(); 
 }
 
@@ -306,7 +310,7 @@ void to_Long(long val){
   Wire.write('o');
   Wire.write('n');
   FOR(i,4)Wire.write(val>>(i*8) & 0xFF);
-  Wire.write('END');//padding byte was required!!
+  Wire.write('E');//padding byte was required!!
   Wire.endTransmission(); 
 }
 
@@ -316,7 +320,7 @@ void to_Int(int val){
   Wire.write('n');
   Wire.write('t');
   FOR(i,2)Wire.write(val>>(i*8) & 0xFF);
-  Wire.write('END');//padding byte was required!!
+  Wire.write('E');//padding byte was required!!
   Wire.endTransmission(); 
 }
 
