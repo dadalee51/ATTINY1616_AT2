@@ -168,7 +168,7 @@ void setup() {
   randomSeed(1450);
 
 drive_motor(MD1,MD2,-1,120);
-delay(3000);
+delay(300);
 drive_motor(MD1,MD2,0,0);
 }
 // arduino long type has 4 bytes, 0xFFFFFFFF, signed. ranged -2,147,483,648 to 2,147483,647
@@ -182,8 +182,8 @@ void loop() {
       //drive motor C
       drive_motor(MC1, MC2, (char)receivedData[3], (char)receivedData[4]); //only works when bytes.
     }else if(receivedData[0]=='M' && receivedData[1]=='D'){
-      //drive motor C
-      drive_motor(MD1, MD2, (char)receivedData[3], (char)receivedData[4]); //only works when bytes.
+      //drive motor D
+      drive_motor(MD1, MD2, (char)receivedData[2], (char)receivedData[3]); //only works when bytes.
     }else if(receivedData[0]=='W' && receivedData[1]=='L'){
       //drive WLED2
       digitalWrite(WLED2, receivedData[3]=='A'?1:0);
