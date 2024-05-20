@@ -1,10 +1,11 @@
 #include <Arduino.h>
 #include <stdio.h>
-/*** AT2 - master 0x17
+/*** AT2 - slave 0x17
  AT2 of DryBot v2.3a, may 10 2024.
+ Drybot v2.5b may19th 2024. update pin positions.
  */
 #include <Wire.h>
-#define TF_ON
+#define TF_OFF
 #define ACC_OFF
 #define CLR_OFF
 
@@ -22,13 +23,13 @@
 #endif
 
 #define FOR(I,N) for(int I=0;I<N;I++)
-#define SEN13 PIN_PC0
-#define SEN14 PIN_PC1
-#define SEN1  PIN_PC2 //IR sensor
-#define SEN2 PIN_PC3
+#define SEN13 PIN_PC0 //LDR
+#define SEN14 PIN_PC1 //LDR
+#define SEN1  PIN_PC2 //IR sensors
+#define SEN2 PIN_PC3  
 #define SEN3 PIN_PB2
-#define MB1 PIN_PB3
-#define MB2 PIN_PA3
+#define ENC_MC_A PIN_PB3  //update 2.5b
+#define ENC_MC_B PIN_PA3
 #define MC1 PIN_PA4
 #define MC2 PIN_PA5
 #define MD1 PIN_PB4
@@ -49,6 +50,7 @@
   int blue=0; int mblue=0; 
   int green=0; int mgreen=0;
 #endif
+//header for AT2
 void TCA9548A(uint8_t bus);
 void drive_motor(int,int,int,int);
 void signalling(int);
@@ -59,18 +61,36 @@ void to_Char(char* val, int lngth);
 void to_Long(long val);
 void to_WLED1(char val);
 void to_Int(int val);
+void receiveData(int numBytes);
+void sendData();
 /*** Wire interface **********************************************/
-#define SLAVE_ADDRESS 0x12 
+#define MY_ADDRESS 0x14
+#define AT1_SLAVE 0x12
 #define BUFFER_SIZE 20 
+char receivedData[BUFFER_SIZE]; 
+char repositoryData[BUFFER_SIZE]; //4:color, 2:LDR, 2:MCenc, 2:MDenc
+int dataLength = 0; 
+int postflag = 0;
+//master send
+void receiveData(int numBytes) {
+  //postflag = 0;
+  dataLength = numBytes;
+  Wire.readBytes(receivedData, numBytes);
+  postflag = 1;//mark data ready
+}
+//master read
+void sendData() {
+  Wire.write(receivedData, dataLength);
+}
 /****Setup function ================================================*/
 void setup() {
-  delay(2000);
+  //delay(2000);
   pinMode(RLED2,OUTPUT);
   pinMode(WLED2,OUTPUT);
   pinMode(ENC_MD_A,INPUT);
   pinMode(ENC_MD_B,INPUT);
-  pinMode(MB1, OUTPUT); 
-  pinMode(MB2, OUTPUT);
+  pinMode(ENC_MC_A, OUTPUT);  //udpate 2.5b
+  pinMode(ENC_MC_B, OUTPUT);  //update 2.5b
   pinMode(MC1, OUTPUT); 
   pinMode(MC2, OUTPUT);
   pinMode(MD1, OUTPUT); 
@@ -84,12 +104,14 @@ void setup() {
 
   analogReference1(INTERNAL2V5); // set reference to the desired voltage, and set that as the ADC reference.
   analogReference1(VDD); // Set the ADC reference to VDD. Voltage selected previously is still the selected, just not set as the ADC reference.  
-  //analogReference1(INTERNAL0V55);
-
-  Wire.begin(); // join i2c bus as master
+  //analogReference1(INTERNAL0V55);//dont do this!
+  Wire.onReceive(receiveData); // callback for receiving data
+  Wire.onRequest(sendData); // callback for sending data
+  Wire.begin(MY_ADDRESS); // join i2c bus as slave
+  //Wire.begin();
   //Switch colour sensor
   //TCA9548A(1);
-  digitalWrite(RLED2, 1); // 0 on, 1 off
+  digitalWrite(RLED2, 0); // 0 on, 1 off
   digitalWrite(WLED2, 0); // 1 on, 0 off
   //digitalWrite(MD1, 0); // 0 on, 1 off
   //digitalWrite(MD2, 0); // 0 on, 1 off
@@ -147,16 +169,46 @@ void setup() {
 }
 // arduino long type has 4 bytes, 0xFFFFFFFF, signed. ranged -2,147,483,648 to 2,147483,647
 long anval =0;
-int counter = 0;
+long data=0xFFFFFF;
 void loop() {  
-  counter++;
-  // to_RGB( random(0xAAAAAA)); //RGB proof i2c works
-  if (counter % 4 == 0)  to_RGB( random(0xAAAAAA)); //RGB proof i2c works
-  if (counter > 100) counter=0;
-  anval = analogRead1(SEN13); 
-  to_Long(anval);
-  anval = analogRead1(SEN14); 
-  to_Long(anval);
+  delay(1);
+
+  if(postflag == 1){
+    if(receivedData[0]=='M' && receivedData[1]=='B'){
+      //drive motor B
+      drive_motor(MB1, MB2, (char)receivedData[3], (char)receivedData[4]); //only works when bytes.
+    }else if(receivedData[0]=='M' && receivedData[1]=='C'){
+      //drive motor C
+      drive_motor(MC1, MC2, (char)receivedData[3], (char)receivedData[4]); //only works when bytes.
+    }else if(receivedData[0]=='W' && receivedData[1]=='L'){
+      //drive WLED2
+      digitalWrite(WLED2, receivedData[3]=='A'?1:0);
+    }else if(receivedData[0]=='C' && receivedData[1]=='h'){
+      //received Char array
+      int lngth = (int)receivedData[3];
+      // FOR(i,lngth){
+      //   Serial.print((char)receivedData[4+i]);
+      // }
+    }else if(receivedData[0]=='L' && receivedData[1]=='o'){
+      //received long value
+      long rec = *(long*)(&receivedData[3]);
+     }else if(receivedData[0]=='I' && receivedData[1]=='n'){
+      //received int value
+      int rec = *(int*)(&receivedData[3]);
+    }else{
+      //not in spec.
+    }
+    postflag = 0;
+  }else{
+    FOR(i,dataLength) receivedData[i]=0;
+  }
+
+  //to_RGB( 0xFFFFFF - random((long)0xA1A1A1)); //RGB proof i2c works
+  //to_RGB(0xAAFFAA);
+  //anval = analogRead1(SEN13); 
+  //anval = analogRead1(SEN14); 
+
+  //read from color sensor
 
   #ifdef TF_ON
   head=sensor.readRangeContinuousMillimeters();
@@ -208,6 +260,9 @@ void loop() {
     // analogWrite(RGB_B, mblue);
     // analogWrite(RGB_G, mgreen);
   #endif 
+
+  // }
+  
 }
 
 /*
@@ -253,13 +308,11 @@ void TCA9548A(uint8_t bus){
 
 // SENDING to COLOR RGB
 void to_RGB(long color){
-  // if(color>>16 == 1)digitalWrite(WLED2,1);
-  // else digitalWrite(WLED2,0);
-  Wire.beginTransmission(0x12); 
+  Wire.beginTransmission(AT1_SLAVE); 
   Wire.write('R');
   Wire.write('G');
   Wire.write('B');//padding byte
-  Wire.write((char)color>>16 & 0xFF); //R
+  Wire.write(color>>16 & 0xFF); //R
   Wire.write(color>>8 & 0xFF); //G
   Wire.write(color & 0xFF); //B
   Wire.write('E'); 
@@ -269,7 +322,7 @@ void to_RGB(long color){
 
 void to_MotorA(int dir, int speed){
   //control motor
-  Wire.beginTransmission(0x12); 
+  Wire.beginTransmission(AT1_SLAVE); 
   Wire.write('M');//0
   Wire.write('A');//1
   Wire.write('1'); //2
@@ -281,7 +334,7 @@ void to_MotorA(int dir, int speed){
 
 //sending 0 as string ?
 void to_WLED1(char val){
-  Wire.beginTransmission(0x12); 
+  Wire.beginTransmission(AT1_SLAVE); 
   Wire.write('W');
   Wire.write('L');
   Wire.write('1');//padding byte
@@ -291,7 +344,7 @@ void to_WLED1(char val){
 }
 
 void to_Char(char* val, int lngth){
-  Wire.beginTransmission(0x12); 
+  Wire.beginTransmission(AT1_SLAVE); 
   Wire.write('C');
   Wire.write('h');
   Wire.write('r');
@@ -305,7 +358,7 @@ void to_Char(char* val, int lngth){
 }
 
 void to_Long(long val){
-  Wire.beginTransmission(0x12); 
+  Wire.beginTransmission(AT1_SLAVE); 
   Wire.write('L');
   Wire.write('o');
   Wire.write('n');
@@ -315,7 +368,7 @@ void to_Long(long val){
 }
 
 void to_Int(int val){
-  Wire.beginTransmission(0x12); 
+  Wire.beginTransmission(AT1_SLAVE); 
   Wire.write('I');
   Wire.write('n');
   Wire.write('t');
