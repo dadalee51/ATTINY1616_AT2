@@ -180,7 +180,7 @@ void loop() {
   if(postflag == 1){
     if(receivedData[0]=='M' && receivedData[1]=='C'){
       //drive motor C
-      drive_motor(MC1, MC2, (char)receivedData[3], (char)receivedData[4]); //only works when bytes.
+      drive_motor(MC1, MC2, (char)receivedData[2], (char)receivedData[3]); //only works when bytes.
     }else if(receivedData[0]=='M' && receivedData[1]=='D'){
       //drive motor D
       drive_motor(MD1, MD2, (char)receivedData[2], (char)receivedData[3]); //only works when bytes.
@@ -270,10 +270,9 @@ void loop() {
 }
 
 /*
- * power = mimic lego's design: +/-255
- * example drive_motor(MA, 255)
- * drive_motor(MB, -50)
- */
+ * dir 1/ 0 / -1 / 10 / 11 / 2
+ * power = mimic lego's design: 0~127
+  */
 void drive_motor(int p1, int p2, int dir, int speed){
   if(dir==1){
     digitalWrite(p2,0);
@@ -284,6 +283,9 @@ void drive_motor(int p1, int p2, int dir, int speed){
   }else if(dir==0) {
     digitalWrite(p1, 0);
     digitalWrite(p2, 0);
+  }else if(dir==2) {
+    digitalWrite(p1, 1);
+    digitalWrite(p2, 1);
   }else if(dir==10){
     digitalWrite(p1, 1);
     digitalWrite(p2, 0);
@@ -380,17 +382,22 @@ void to_Int(int val){
   Wire.write('E');//padding byte was required!!
   Wire.endTransmission(); 
 }
+/**
+ * Display any byte, ex, 0b00001111, numdig=8
+ * wled blink first 4 times.
+ * rled blink all 8 times.
+*/
 
 void debugData(long val){
-  int rled_flip=0;
-    FOR(i,16){
-      digitalWrite(WLED2,(val>>i)&1);
-      digitalWrite(RLED2,rled_flip);
-      rled_flip = !rled_flip;
-      delay(30);
-      digitalWrite(WLED2,0);
-      digitalWrite(RLED2,rled_flip);
-      rled_flip = !rled_flip;
-      delay(30);
-    }
+  int rled_flip=0;  
+  FOR(i,16){
+    digitalWrite(WLED2,(val>>i)&1);
+    digitalWrite(RLED2,rled_flip);
+    rled_flip = !rled_flip;
+    delay(30);
+    digitalWrite(WLED2,0);
+    digitalWrite(RLED2,rled_flip);
+    rled_flip = !rled_flip;
+    delay(30);
+  }
 }
