@@ -101,7 +101,7 @@ void setup() {
   pinMode(SEN2, INPUT);
   pinMode(SEN3, INPUT);
   init_ADC1(); //required by author
-
+  Wire.setClock(400000);
   analogReference1(INTERNAL2V5); // set reference to the desired voltage, and set that as the ADC reference.
   analogReference1(VDD); // Set the ADC reference to VDD. Voltage selected previously is still the selected, just not set as the ADC reference.  
   //analogReference1(INTERNAL0V55);//dont do this!
@@ -167,16 +167,17 @@ void setup() {
   #endif
   randomSeed(1450);
 
-drive_motor(MD1,MD2,-1,120);
-delay(300);
-drive_motor(MD1,MD2,0,0);
+// drive_motor(MD1,MD2,-1,120);
+// delay(300);
+// drive_motor(MD1,MD2,0,0);
 }
 // arduino long type has 4 bytes, 0xFFFFFFFF, signed. ranged -2,147,483,648 to 2,147483,647
 long anval =0;
 long data=0xFFFFFF;
 void loop() {  
-  delay(1);
-
+  // delay(1);
+  delayMicroseconds(500);
+  int rled_flip=0;  
   if(postflag == 1){
     if(receivedData[0]=='M' && receivedData[1]=='C'){
       //drive motor C
@@ -201,6 +202,8 @@ void loop() {
       int rec = *(int*)(&receivedData[3]);
     }else{
       //not in spec.
+      digitalWrite(RLED2,rled_flip);
+      rled_flip = !rled_flip;
     }
     postflag = 0;
   }else{
