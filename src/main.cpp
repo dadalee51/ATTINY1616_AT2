@@ -25,9 +25,9 @@
 #define FOR(I,N) for(int I=0;I<N;I++)
 #define SEN13 PIN_PC0 //LDR
 #define SEN14 PIN_PC1 //LDR
-#define SEN1  PIN_PC2 //IR sensors
+#define SEN1  PIN_PC2 //IR Sensors left
 #define SEN2 PIN_PC3  
-#define SEN3 PIN_PB2
+#define SEN3 PIN_PB2  //IR Sensor right -unable to use due to wrong pin assignment.
 #define ENC_MC_A PIN_PB3  //update 2.5b
 #define ENC_MC_B PIN_PA3
 #define MC1 PIN_PA4
@@ -71,6 +71,8 @@ char receivedData[BUFFER_SIZE];
 char repositoryData[BUFFER_SIZE]; //4:color, 2:LDR, 2:MCenc, 2:MDenc
 int dataLength = 0; 
 int postflag = 0;
+int outLength = 8;
+int sendflag = 0;
 //master send
 void receiveData(int numBytes) {
   //postflag = 0;
@@ -80,7 +82,7 @@ void receiveData(int numBytes) {
 }
 //master read
 void sendData() {
-  Wire.write(receivedData, dataLength);
+  Wire.write(repositoryData, outLength);
 }
 /****Setup function ================================================*/
 void setup() {
@@ -174,9 +176,12 @@ void setup() {
 // arduino long type has 4 bytes, 0xFFFFFFFF, signed. ranged -2,147,483,648 to 2,147483,647
 long anval =0;
 long data=0xFFFFFF;
-void loop() {  
+long curLDRTime = millis();
+long curIRTime = millis();
+void loop() {
   // delay(1);
   delayMicroseconds(500);
+
   int rled_flip=0;  
   if(postflag == 1){
     if(receivedData[0]=='M' && receivedData[1]=='C'){
@@ -208,6 +213,27 @@ void loop() {
     postflag = 0;
   }else{
     FOR(i,dataLength) receivedData[i]=0;
+  }
+
+  //read LDR every second
+  if (millis() - curLDRTime > 1000){
+    anval = analogRead1(SEN13); //LDR right
+    repositoryData[0] = (anval & 0xFF )<< 8;
+    repositoryData[1] = (anval & 0xFF );
+    anval = analogRead1(SEN14); //LDR left
+    repositoryData[2] = (anval & 0xFF )<< 8;
+    repositoryData[3] = (anval & 0xFF );
+    curLDRTime = millis();
+  }
+  
+  if (millis() - curIRTime > 500){
+    anval = analogRead1(SEN1); //IR right
+    repositoryData[4] = (anval & 0xFF )<< 8;
+    repositoryData[5] = (anval & 0xFF );
+    anval = analogRead(SEN3); //IR left
+    repositoryData[6] = (anval & 0xFF )<< 8;
+    repositoryData[7] = (anval & 0xFF );
+    curIRTime = millis();
   }
 
   //to_RGB( 0xFFFFFF - random((long)0xA1A1A1)); //RGB proof i2c works
