@@ -113,8 +113,8 @@ void setup() {
   //Wire.begin();
   //Switch colour sensor
   //TCA9548A(1);
-  digitalWrite(RLED2, 0); // 0 on, 1 off
-  digitalWrite(WLED2, 0); // 1 on, 0 off
+  digitalWrite(RLED2, 1); // 0 on, 1 off
+  digitalWrite(WLED2, 1); // 1 on, 0 off
   //digitalWrite(MD1, 0); // 0 on, 1 off
   //digitalWrite(MD2, 0); // 0 on, 1 off
   #ifdef TF_ON
@@ -182,7 +182,7 @@ void loop() {
   // delay(1);
   delayMicroseconds(500);
 
-  int rled_flip=0;  
+  // int rled_flip=0;  
   if(postflag == 1){
     if(receivedData[0]=='M' && receivedData[1]=='C'){
       //drive motor C
@@ -207,8 +207,8 @@ void loop() {
       int rec = *(int*)(&receivedData[3]);
     }else{
       //not in spec.
-      digitalWrite(RLED2,rled_flip);
-      rled_flip = !rled_flip;
+      // digitalWrite(RLED2,rled_flip);
+      // rled_flip = !rled_flip;
     }
     postflag = 0;
   }else{
@@ -216,7 +216,7 @@ void loop() {
   }
 
   //read LDR every second
-  if (millis() - curLDRTime > 1000){
+  if (millis() - curLDRTime > 100){
     anval = analogRead1(SEN13); //LDR right
     repositoryData[0] = (anval & 0xFF )<< 8;
     repositoryData[1] = (anval & 0xFF );
@@ -230,7 +230,7 @@ void loop() {
     anval = analogRead1(SEN1); //IR right
     repositoryData[4] = (anval & 0xFF )<< 8;
     repositoryData[5] = (anval & 0xFF );
-    anval = analogRead(SEN3); //IR left
+    anval = analogRead1(SEN3); //IR left
     repositoryData[6] = (anval & 0xFF )<< 8;
     repositoryData[7] = (anval & 0xFF );
     curIRTime = millis();
