@@ -113,7 +113,7 @@ void setup() {
   //Wire.begin();
   //Switch colour sensor
   //TCA9548A(1);
-  digitalWrite(RLED2, 1); // 0 on, 1 off
+  digitalWrite(RLED2, 0); // 0 on, 1 off
   digitalWrite(WLED2, 1); // 1 on, 0 off
   //digitalWrite(MD1, 0); // 0 on, 1 off
   //digitalWrite(MD2, 0); // 0 on, 1 off
